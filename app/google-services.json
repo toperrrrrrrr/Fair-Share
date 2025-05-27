@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "716896848191",
+    "project_id": "hari-8892a",
+    "storage_bucket": "hari-8892a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:716896848191:android:6437b6c9da5cbba9dfab8a",
+        "android_client_info": {
+          "package_name": "com.fairshare"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAXBjy9zLNl6VfnjUV6iY9hxidemyhaQk8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

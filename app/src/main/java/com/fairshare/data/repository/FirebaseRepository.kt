@@ -1,0 +1,228 @@
+package com.fairshare.data.repository
+
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
+import com.fairshare.data.model.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.tasks.await
+import com.google.firebase.Timestamp
+
+class FirebaseRepository {
+    private val auth = FirebaseAuth.getInstance()
+    private val db = FirebaseFirestore.getInstance()
+
+    // Collection references
+    private val usersCollection = db.collection("users")
+    private val groupsCollection = db.collection("groups")
+    private val expensesCollection = db.collection("expenses")
+    private val settlementsCollection = db.collection("settlements")
+    private val balancesCollection = db.collection("balances")
+    private val notificationsCollection = db.collection("notifications")
+
+    // User operations
+    suspend fun createUser(user: FirebaseUser) {
+        usersCollection.document(user.id).set(user).await()
+    }
+
+    suspend fun updateUser(userId: String, updates: Map<String, Any>) {
+        usersCollection.document(userId).update(updates).await()
+    }
+
+    fun getCurrentUser(): Flow<FirebaseUser?> = flow {
+        val userId = auth.currentUser?.uid ?: return@flow emit(null)
+        val snapshot = usersCollection.document(userId).get().await()
+        emit(snapshot.toObject(FirebaseUser::class.java))
+    }
+
+    // Group operations
+    suspend fun createGroup(group: FirebaseGroup): String {
+        val docRef = groupsCollection.add(group).await()
+        return docRef.id
+    }
+
+    suspend fun updateGroup(groupId: String, updates: Map<String, Any>) {
+        groupsCollection.document(groupId).update(updates).await()
+    }
+
+    fun getUserGroups(userId: String): Flow<List<FirebaseGroup>> = flow {
+        val snapshot = groupsCollection
+            .whereArrayContains("members", userId)
+            .orderBy("updatedAt", Query.Direction.DESCENDING)
+            .get()
+            .await()
+        emit(snapshot.toObjects(FirebaseGroup::class.java))
+    }
+
+    // Expense operations
+    suspend fun getExpense(expenseId: String): FirebaseExpense? {
+        return try {
+            val doc = expensesCollection.document(expenseId).get().await()
+            if (doc.exists()) {
+                doc.toObject(FirebaseExpense::class.java)
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    suspend fun addExpense(expense: FirebaseExpense): String {
+        val docRef = expensesCollection.add(expense).await()
+        updateGroupBalances(expense)
+        return docRef.id
+    }
+
+    suspend fun updateExpense(expenseId: String, updates: Map<String, Any>) {
+        try {
+            // Get the old expense for balance adjustment
+            val oldExpense = getExpense(expenseId)
+            
+            // Update the expense
+            expensesCollection.document(expenseId)
+                .update(updates)
+                .await()
+            
+            // Get the updated expense
+            val newExpense = getExpense(expenseId)
+            
+            // If both expenses exist and amount/splits changed, adjust balances
+            if (oldExpense != null && newExpense != null) {
+                // Reverse old balances
+                updateGroupBalances(oldExpense, reverse = true)
+                // Apply new balances
+                updateGroupBalances(newExpense)
+            }
+        } catch (e: Exception) {
+            throw Exception("Failed to update expense: ${e.message}")
+        }
+    }
+
+    suspend fun deleteExpense(expenseId: String) {
+        try {
+            // Get the expense before deleting
+            val expense = getExpense(expenseId)
+            
+            // Delete the expense
+            expensesCollection.document(expenseId)
+                .delete()
+                .await()
+            
+            // If expense existed, reverse its balances
+            expense?.let {
+                updateGroupBalances(it, reverse = true)
+            }
+        } catch (e: Exception) {
+            throw Exception("Failed to delete expense: ${e.message}")
+        }
+    }
+
+    // Helper function to update balances
+    private suspend fun updateGroupBalances(expense: FirebaseExpense, reverse: Boolean = false) {
+        val multiplier = if (reverse) -1 else 1
+        
+        // Update payer's balance
+        val payerBalance = expense.amount * multiplier
+        updateUserBalance(expense.groupId, expense.paidBy, payerBalance)
+
+        // Update split balances
+        expense.splits.forEach { (userId, splitAmount) ->
+            updateUserBalance(expense.groupId, userId, -splitAmount * multiplier)
+        }
+    }
+
+    fun getGroupExpenses(groupId: String): Flow<List<FirebaseExpense>> = flow {
+        val snapshot = expensesCollection
+            .whereEqualTo("groupId", groupId)
+            .orderBy("date", Query.Direction.DESCENDING)
+            .get()
+            .await()
+        emit(snapshot.toObjects(FirebaseExpense::class.java))
+    }
+
+    // Settlement operations
+    suspend fun createSettlement(settlement: FirebaseSettlement): String {
+        val docRef = settlementsCollection.add(settlement).await()
+        return docRef.id
+    }
+
+    suspend fun updateSettlementStatus(
+        settlementId: String,
+        status: SettlementStatus,
+        completedAt: Timestamp? = null
+    ) {
+        val updates = mutableMapOf<String, Any>(
+            "status" to status,
+            "updatedAt" to Timestamp.now()
+        )
+        completedAt?.let { updates["completedAt"] = it }
+        settlementsCollection.document(settlementId).update(updates).await()
+    }
+
+    fun getGroupSettlements(groupId: String): Flow<List<FirebaseSettlement>> = flow {
+        val snapshot = settlementsCollection
+            .whereEqualTo("groupId", groupId)
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .get()
+            .await()
+        emit(snapshot.toObjects(FirebaseSettlement::class.java))
+    }
+
+    // Balance operations
+    private suspend fun updateUserBalance(groupId: String, userId: String, amount: Double) {
+        val balanceDoc = balancesCollection
+            .whereEqualTo("groupId", groupId)
+            .whereEqualTo("userId", userId)
+            .get()
+            .await()
+            .documents
+            .firstOrNull()
+
+        if (balanceDoc != null) {
+            val currentBalance = balanceDoc.getDouble("amount") ?: 0.0
+            balancesCollection.document(balanceDoc.id).update(
+                mapOf(
+                    "amount" to currentBalance + amount,
+                    "updatedAt" to Timestamp.now()
+                )
+            ).await()
+        } else {
+            balancesCollection.add(
+                FirebaseBalance(
+                    groupId = groupId,
+                    userId = userId,
+                    amount = amount
+                )
+            ).await()
+        }
+    }
+
+    fun getGroupBalances(groupId: String): Flow<List<FirebaseBalance>> = flow {
+        val snapshot = balancesCollection
+            .whereEqualTo("groupId", groupId)
+            .get()
+            .await()
+        emit(snapshot.toObjects(FirebaseBalance::class.java))
+    }
+
+    // Notification operations
+    suspend fun createNotification(notification: FirebaseNotification): String {
+        val docRef = notificationsCollection.add(notification).await()
+        return docRef.id
+    }
+
+    suspend fun markNotificationAsRead(notificationId: String) {
+        notificationsCollection.document(notificationId).update("read", true).await()
+    }
+
+    fun getUserNotifications(userId: String): Flow<List<FirebaseNotification>> = flow {
+        val snapshot = notificationsCollection
+            .whereEqualTo("recipientId", userId)
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .get()
+            .await()
+        emit(snapshot.toObjects(FirebaseNotification::class.java))
+    }
+} 
