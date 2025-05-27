@@ -5,33 +5,45 @@ FairShare is a group expense management application that helps users track share
 ## Features
 
 - 👤 User Authentication
-  - Email/Password login
-  - User registration
-  - Password recovery
+  - Email/Password login with verification
+  - Biometric authentication (Fingerprint/Face ID)
+  - Google Sign-in integration
   - Profile management
+  - Secure session handling
 
 - 👥 Group Management
   - Create and join groups
-  - Manage group members
+  - Real-time member management
   - Multiple currency support
-  - Real-time updates
+  - Role-based permissions
+  - Activity logging
 
 - 💰 Expense Tracking
   - Add/edit/delete expenses
-  - Split expenses equally or custom
-  - Receipt upload support
+  - Multiple split options (Equal, Percentage, Custom)
+  - Receipt management (Coming Soon)
   - Expense categorization
+  - Real-time updates
 
-- 📊 Balance Calculation
+- 📊 Balance Management
   - Automatic balance computation
+  - Multi-currency support
   - Simplified debt resolution
+  - Settlement suggestions
   - Transaction history
-  - Settlement tracking
+  - Balance visualization
+
+- 🔐 Security Features
+  - End-to-end encryption
+  - Secure data storage
+  - Biometric authentication
+  - API key protection
+  - Input validation
 
 ## Technology Stack
 
 - **Language**: Kotlin
-- **UI Framework**: Jetpack Compose
+- **UI Framework**: Jetpack Compose with Material 3
 - **Architecture**: MVVM with Clean Architecture
 - **Backend**: Firebase (Authentication, Firestore, Storage)
 - **Dependencies**:
@@ -40,6 +52,9 @@ FairShare is a group expense management application that helps users track share
   - ViewModel Compose
   - Firebase BoM
   - Kotlin Coroutines
+  - Biometric Authentication
+  - Room Database (offline support)
+  - WorkManager (background tasks)
 
 ## Project Setup
 
@@ -54,6 +69,7 @@ git clone https://github.com/yourusername/fairshare-android.git
    - Create a new Firebase project
    - Add your `google-services.json` to the app directory
    - Enable Authentication and Firestore
+   - Configure Storage for receipt uploads
 
 4. Build and run the project
 
@@ -71,14 +87,34 @@ The project follows Clean Architecture principles with the following layers:
 
 ```
 app/
-├── data/           # Data layer (repositories, data sources)
-├── domain/         # Business logic and entities
-└── presentation/   # UI layer (screens, viewmodels)
-    ├── auth/       # Authentication screens
-    ├── groups/     # Group management
-    ├── expenses/   # Expense tracking
-    └── common/     # Shared components
+├── data/           # Data layer
+│   ├── local/     # Local storage
+│   ├── remote/    # Remote data sources
+│   └── repos/     # Repositories
+├── domain/         # Business logic
+│   ├── models/    # Domain models
+│   ├── usecases/  # Use cases
+│   └── repos/     # Repository interfaces
+└── presentation/   # UI layer
+    ├── auth/      # Authentication
+    ├── groups/    # Group management
+    ├── expenses/  # Expense tracking
+    ├── profile/   # User profile
+    └── common/    # Shared components
 ```
+
+## Current Status
+
+- Version: 0.2.0
+- Status: Beta
+- Next Release: Receipt Management Update
+
+### Upcoming Features
+- Receipt upload and OCR
+- Enhanced user profiles
+- Advanced group features
+- Offline support improvements
+- Performance optimizations
 
 ## Contributing
 
@@ -88,6 +124,21 @@ app/
 4. Push to the branch
 5. Create a Pull Request
 
+Please read our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Support
+
+For support, please:
+- Check our [Documentation](docs/README.md)
+- Open an [Issue](../../issues)
+- Join our [Discord Community](discord-link)
+
+## Acknowledgments
+
+- Firebase team for the excellent backend services
+- Jetpack Compose team for the modern UI toolkit
+- Our contributors and early adopters 

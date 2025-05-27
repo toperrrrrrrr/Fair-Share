@@ -218,12 +218,23 @@ class AuthViewModel(
 
     fun skipLoginForDev() {
         viewModelScope.launch {
-            _uiState.value = AuthUiState.Loading
             try {
-                // Create a mock user for development
-                val mockUser = auth.signInAnonymously().await().user
-                    ?: throw Exception("Failed to create anonymous user")
-                _uiState.value = AuthUiState.Success(mockUser)
+                _uiState.value = AuthUiState.Loading
+                
+                // Ensure we're signed out first
+                auth.signOut()
+                
+                // Try anonymous sign in
+                val result = auth.signInAnonymously().await()
+                val user = result.user ?: throw Exception("Failed to create anonymous user")
+                
+                // Update display name for dev user
+                val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
+                    .setDisplayName("Dev User")
+                    .build()
+                user.updateProfile(profileUpdates).await()
+                
+                _uiState.value = AuthUiState.Success(user)
             } catch (e: Exception) {
                 _uiState.value = AuthUiState.Error(e.message ?: "Failed to skip login")
             }

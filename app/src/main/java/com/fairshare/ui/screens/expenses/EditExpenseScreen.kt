@@ -5,7 +5,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Person
@@ -97,7 +97,7 @@ fun EditExpenseScreen(
                             }
                         }
                     ) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -223,7 +223,7 @@ fun EditExpenseScreen(
                 SplitAmountSection(
                     splitType = splitType,
                     amount = amount.toDouble(),
-                    members = TestData.TEST_USERS,
+                    members = TestData.TEST_USERS.map { it.id },
                     onSplitAmountsChanged = { splitAmounts = it }
                 )
                 
@@ -331,14 +331,14 @@ fun EditExpenseScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
-                                selected = user == paidBy,
+                                selected = user.id == paidBy,
                                 onClick = {
-                                    paidBy = user
+                                    paidBy = user.id
                                     showPaidByDialog = false
                                 }
                             )
                             Text(
-                                text = user,
+                                text = user.displayName,
                                 style = MaterialTheme.typography.bodyLarge,
                                 modifier = Modifier.padding(start = 8.dp)
                             )

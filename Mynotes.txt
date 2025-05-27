@@ -1,28 +1,39 @@
-login page 
-needs to have google sign in for faster login 
-register also needs to have google sign in instead. 
+Parked tasks. 
+Continue with google is not working.  - needs to be handled on firebase console. 
+Dark mode. - lots of error, will park for now
+Upload group image / maybe just select emoji instead of image? 
 
-registration page 
-"create account" title is too high now showing under the phone status bar. 
 
-Doesnt have to make it work. Just needs to be there for when I am ready to do the backend. 
+Main page / group list 
+The loading circleshape just appears and disappears, can you animate it a bit? 
 
-main page.
-should have navigation page here  to navigate from different tabs 
-Groups
-friends 
-activity.
-
-Keep in mind that I am trying to create my own version of Splitwise 
-whats different is that this will be free for now. might change later. could potentially add non intrusive ads
-can have a companion app on webapp where we can manage the expenses through browser. Downlaod report and stuff....... 
+Group page 
+members to be hidden inside the group settings 
+On the dashboard I want to see a small section for the balances of who owes who
 
 
 
-Select currency default should be based on the current location ideally but for now philippine peso since I am from the PH. 
+Creategroup 
+The currency cannot be edited. 
+the group is not being saved and not showing up on the group list. 
 
-There should be Settings. 
-Group settings as well.
 
 
-The group should have .. who owes who list. 
+
+
+upload image for group. 
+
+
+group list
+refresh/reload still appears and disapears. need to have a pull down animation/transition. 
+
+
+Settings
+Logout is missing. 
+default currency should be php. 
+Profile settings is not opening new page. 
+disable email notif for now 
+
+Settings button for the group list suddenly appeared on the bottom nav bar. 
+Can you return it to the upper right side of the screen where it was supposed to be in? 
+

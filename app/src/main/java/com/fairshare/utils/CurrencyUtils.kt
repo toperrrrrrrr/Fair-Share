@@ -38,7 +38,7 @@ object CurrencyUtils {
         CurrencyCodes.CAD to "C$",
         CurrencyCodes.HKD to "HK$",
         CurrencyCodes.CNY to "¥",
-        CurrencyCodes.CHF to "CHF",
+        CurrencyCodes.CHF to "Fr",
         CurrencyCodes.INR to "₹"
     )
 
@@ -49,16 +49,16 @@ object CurrencyUtils {
     // Get currency formatter for a specific currency
     fun getFormatter(currencyCode: String = DEFAULT_CURRENCY_CODE): NumberFormat {
         val locale = when (currencyCode) {
-            CurrencyCodes.PHP -> Locale("en", "PH")
+            CurrencyCodes.PHP -> Locale("fil", "PH")
             CurrencyCodes.USD -> Locale.US
-            CurrencyCodes.EUR -> Locale("de", "DE")  // Using Germany as default EUR locale
+            CurrencyCodes.EUR -> Locale.GERMANY
             CurrencyCodes.GBP -> Locale.UK
             CurrencyCodes.JPY -> Locale.JAPAN
             CurrencyCodes.AUD -> Locale("en", "AU")
             CurrencyCodes.SGD -> Locale("en", "SG")
             CurrencyCodes.CAD -> Locale("en", "CA")
             CurrencyCodes.HKD -> Locale("en", "HK")
-            CurrencyCodes.CNY -> Locale.SIMPLIFIED_CHINESE
+            CurrencyCodes.CNY -> Locale.CHINA
             CurrencyCodes.CHF -> Locale("de", "CH")
             CurrencyCodes.INR -> Locale("en", "IN")
             else -> Locale.getDefault()
@@ -101,13 +101,7 @@ object CurrencyUtils {
 
     // Parse amount string to Double
     fun parseAmount(amount: String): Double {
-        return try {
-            // Remove currency symbol and any grouping separators
-            val cleanString = amount.replace("[^\\d.-]".toRegex(), "")
-            cleanString.toDouble()
-        } catch (e: Exception) {
-            0.0
-        }
+        return amount.replace("[^0-9.]".toRegex(), "").toDoubleOrNull() ?: 0.0
     }
 
     // Convert amount between currencies
@@ -163,17 +157,10 @@ object CurrencyUtils {
     }
 
     fun getAllCurrencies(): List<String> {
-        return Currency.getAvailableCurrencies()
-            .sortedBy { it.currencyCode }
-            .map { it.currencyCode }
+        return currencySymbols.keys.toList()
     }
 
     fun isValidCurrencyCode(currencyCode: String): Boolean {
-        return try {
-            Currency.getInstance(currencyCode)
-            true
-        } catch (e: IllegalArgumentException) {
-            false
-        }
+        return currencySymbols.containsKey(currencyCode)
     }
 } 

@@ -5,36 +5,45 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.fairshare.data.TestData
 import com.fairshare.data.model.Expense
 import com.fairshare.navigation.Screen
+import com.fairshare.ui.components.PullToRefresh
+import com.fairshare.ui.viewmodels.ExpenseViewModel
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExpenseListScreen(
     navController: NavController,
     groupId: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: ExpenseViewModel = viewModel()
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     var showFilterDialog by remember { mutableStateOf(false) }
+    var isRefreshing by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     
     // Use test data
     var expenses by remember { mutableStateOf(
@@ -49,7 +58,7 @@ fun ExpenseListScreen(
                 title = { Text("Expenses") },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -91,67 +100,78 @@ fun ExpenseListScreen(
                 }
             }
 
-            if (expenses.isEmpty()) {
-                // Empty State
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Receipt,
-                            contentDescription = "No Expenses",
-                            modifier = Modifier.size(72.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        Text(
-                            text = "No Expenses Yet",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        Text(
-                            text = "Add your first expense to start tracking",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+            // Expense List with Pull to Refresh
+            PullToRefresh(
+                isRefreshing = isRefreshing,
+                onRefresh = {
+                    scope.launch {
+                        isRefreshing = true
+                        delay(1000)
+                        viewModel.refreshExpenses()
+                        isRefreshing = false
                     }
                 }
-            } else {
-                // Expense List
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(
-                        expenses.filter { expense ->
-                            val matchesSearch = expense.title.contains(searchQuery, ignoreCase = true) ||
-                                    expense.notes.contains(searchQuery, ignoreCase = true)
-                            val matchesCategory = selectedCategory == null || expense.category == selectedCategory
-                            matchesSearch && matchesCategory
-                        }.sortedByDescending { it.date }
-                    ) { expense ->
-                                            ExpenseCard(
-                        expense = expense,
-                        onClick = { 
-                            navController.navigate(Screen.ExpenseDetail.createRoute(groupId, expense.id))
+            ) {
+                @Composable {
+                    if (expenses.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Receipt,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(48.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = "No expenses yet",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Text(
+                                    text = "Add an expense to get started",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Button(
+                                    onClick = { navController.navigate(Screen.AddExpense.createRoute(groupId)) }
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Add Expense")
+                                }
+                            }
                         }
-                    )
-                    }
-                    
-                    item {
-                        Spacer(modifier = Modifier.height(80.dp)) // Space for FAB
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(
+                                expenses.filter { expense ->
+                                    val matchesSearch = expense.title.contains(searchQuery, ignoreCase = true) ||
+                                            expense.notes.contains(searchQuery, ignoreCase = true)
+                                    val matchesCategory = selectedCategory == null || expense.category == selectedCategory
+                                    matchesSearch && matchesCategory
+                                }.sortedByDescending { it.date }
+                            ) { expense ->
+                                ExpenseCard(
+                                    expense = expense,
+                                    onClick = { 
+                                        navController.navigate(Screen.ExpenseDetail.createRoute(groupId, expense.id))
+                                    }
+                                )
+                            }
+                            
+                            item {
+                                Spacer(modifier = Modifier.height(80.dp)) // Space for FAB
+                            }
+                        }
                     }
                 }
             }
@@ -271,7 +291,7 @@ private fun ExpenseCard(
                     label = { Text(expense.category) },
                     leadingIcon = {
                         Icon(
-                            Icons.Default.Label,
+                            Icons.AutoMirrored.Filled.Label,
                             contentDescription = "Category",
                             modifier = Modifier.size(16.dp)
                         )

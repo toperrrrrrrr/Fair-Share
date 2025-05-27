@@ -1,31 +1,70 @@
 package com.fairshare.navigation
 
 sealed class Screen(val route: String) {
+    // Splash Screen
+    object Splash : Screen("splash")
+
+    // Auth Screens
     object Login : Screen("login")
     object Register : Screen("register")
-    object ForgotPassword : Screen("forgot-password")
-    object Main : Screen("main")
-    object GroupList : Screen("groups")
-    object CreateGroup : Screen("groups/create")
-    object BalanceSummary : Screen("balance_summary")
-    object GroupDetail : Screen("group/{groupId}") {
-        fun createRoute(groupId: String) = "group/$groupId"
+    object ForgotPassword : Screen("forgot_password")
+    object EmailVerification : Screen("email_verification")
+    
+    // Main Navigation
+    object Main : Screen("main_screen")
+    
+    // Group Screens
+    object GroupList : Screen("group_list_screen")
+    object CreateGroup : Screen("create_group")
+    object Friends : Screen("friends_screen")
+    
+    object GroupDetail : Screen("group_detail_screen/{groupId}") {
+        fun createRoute(groupId: String) = "group_detail_screen/$groupId"
     }
-    object ExpenseList : Screen("group/{groupId}/expenses") {
-        fun createRoute(groupId: String) = "group/$groupId/expenses"
+    
+    object GroupSettings : Screen("group_settings/{groupId}") {
+        fun createRoute(groupId: String) = "group_settings/$groupId"
     }
-    object AddExpense : Screen("group/{groupId}/add-expense") {
-        fun createRoute(groupId: String) = "group/$groupId/add-expense"
+    
+    object GroupMemberManagement : Screen("group_members/{groupId}") {
+        fun createRoute(groupId: String) = "group_members/$groupId"
     }
-    object ExpenseDetail : Screen("group/{groupId}/expense/{expenseId}") {
-        fun createRoute(groupId: String, expenseId: String) = "group/$groupId/expense/$expenseId"
+    
+    // Expense Screens
+    object AddExpense : Screen("add_expense_screen/{groupId}") {
+        fun createRoute(groupId: String) = "add_expense_screen/$groupId"
     }
-    object EditExpense : Screen("group/{groupId}/expense/{expenseId}/edit") {
-        fun createRoute(groupId: String, expenseId: String) = "group/$groupId/expense/$expenseId/edit"
+    
+    object ExpenseDetail : Screen("expense_details/{groupId}/{expenseId}") {
+        fun createRoute(groupId: String, expenseId: String) = "expense_details/$groupId/$expenseId"
     }
+    
+    object EditExpense : Screen("edit_expense_screen/{groupId}/{expenseId}") {
+        fun createRoute(groupId: String, expenseId: String) = "edit_expense_screen/$groupId/$expenseId"
+    }
+    
+    object ExpenseList : Screen("expense_list_screen/{groupId}") {
+        fun createRoute(groupId: String) = "expense_list_screen/$groupId"
+    }
+    
+    // Activity and Statistics
+    object ActivityLog : Screen("activity_screen") // Global activity screen
+    
+    object GroupActivityLog : Screen("group_activity_log/{groupId}") {
+        fun createRoute(groupId: String) = "group_activity_log/$groupId"
+    }
+    
+    object GroupStatistics : Screen("group_statistics_screen/{groupId}") {
+        fun createRoute(groupId: String) = "group_statistics_screen/$groupId"
+    }
+    
+    // Balance and Settlement
+    object BalanceSummary : Screen("balance_summary_screen/{groupId}") {
+        fun createRoute(groupId: String) = "balance_summary_screen/$groupId"
+    }
+    
+    // Settings
     object Settings : Screen("settings")
-    object EmailVerification : Screen("email-verification")
-    object GroupSettings : Screen("group/{groupId}/settings") {
-        fun createRoute(groupId: String) = "group/$groupId/settings"
-    }
+
+    object Profile : Screen("profile")
 } 

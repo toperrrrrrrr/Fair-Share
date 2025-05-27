@@ -90,6 +90,18 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.json:json:20240303")
 
+    // QR Code Generation
+    implementation 'com.google.zxing:core:3.5.2'
+
+    // Expression Evaluation
+    implementation 'net.objecthunter:exp4j:0.4.8'
+
+    // Pull to refresh
+    implementation "com.google.accompanist:accompanist-swiperefresh:0.32.0"
+
+    // Navigation Animations
+    implementation "com.google.accompanist:accompanist-navigation-animation:0.32.0"
+
     // Testing
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'

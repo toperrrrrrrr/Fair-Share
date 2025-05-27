@@ -3,312 +3,233 @@ package com.fairshare.ui.screens.groups
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material.icons.filled.ExitToApp
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.fairshare.navigation.Screen
 import com.fairshare.ui.components.CurrencySelector
+import com.fairshare.ui.components.QRCodeGenerator
 import com.fairshare.ui.viewmodel.GroupSettingsUiState
 import com.fairshare.ui.viewmodel.GroupSettingsViewModel
 import com.fairshare.utils.CurrencyUtils
 import com.fairshare.data.model.GroupMember
 import com.fairshare.data.model.GroupMemberRole
+import com.fairshare.data.TestData
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupSettingsScreen(
     navController: NavController,
     groupId: String,
-    modifier: Modifier = Modifier,
-    viewModel: GroupSettingsViewModel = viewModel()
+    modifier: Modifier = Modifier
 ) {
-    var showLeaveDialog by remember { mutableStateOf(false) }
+    val group = TestData.TEST_GROUPS.find { it.id == groupId }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var showInviteDialog by remember { mutableStateOf(false) }
-    var showRenameDialog by remember { mutableStateOf(false) }
-    var showErrorSnackbar by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
+    var showQRDialog by remember { mutableStateOf(false) }
+    var showCurrencyDialog by remember { mutableStateOf(false) }
+    var selectedCurrency by remember { mutableStateOf(group?.currency ?: CurrencyUtils.CurrencyCodes.PHP) }
     
-    var newGroupName by remember { mutableStateOf("") }
-    var inviteEmail by remember { mutableStateOf("") }
-    
-    val uiState by viewModel.uiState.collectAsState()
-    
-    // Load group settings when the screen is created
     LaunchedEffect(groupId) {
-        viewModel.loadGroupSettings(groupId)
+        // TODO: Implement loading group settings
     }
-    
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Group Settings") },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
-        },
-        snackbarHost = {
-            SnackbarHost(SnackbarHostState()) {
-                if (showErrorSnackbar) {
-                    Snackbar(
-                        action = {
-                            TextButton(onClick = { showErrorSnackbar = false }) {
-                                Text("Dismiss")
-                            }
-                        }
-                    ) {
-                        Text(errorMessage)
-                    }
-                }
-            }
         }
     ) { padding ->
-        when (uiState) {
-            is GroupSettingsUiState.Loading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+        if (group == null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Group not found",
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center
+                )
+            }
+            return@Scaffold
+        }
+
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Group Info Card
+            Card(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
                 ) {
-                    CircularProgressIndicator()
+                    Text(
+                        text = group.name,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    if (group.description.isNotEmpty()) {
+                        Text(
+                            text = group.description,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
                 }
             }
-            
-            is GroupSettingsUiState.Success -> {
-                val state = uiState as GroupSettingsUiState.Success
-                
-                LazyColumn(
-                    modifier = modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+
+            // Settings List
+            Card(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Basic Settings Section
-                    item {
-                        SettingsSection(title = "Basic Settings") {
-                            // Group Name
-                            SettingsItem(
-                                title = "Group Name",
-                                subtitle = state.groupName,
-                                icon = Icons.Default.Edit,
-                                onClick = {
-                                    newGroupName = state.groupName
-                                    showRenameDialog = true
-                                }
-                            )
-                            
-                            // Currency
-                            CurrencySelector(
-                                selectedCurrency = state.currency,
-                                onCurrencySelected = { newCurrency ->
-                                    viewModel.updateGroupCurrency(groupId, newCurrency)
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp)
-                            )
-                        }
-                    }
-                    
-                    // Members Section
-                    item {
-                        SettingsSection(title = "Members") {
-                            state.members.forEach { member ->
-                                MemberItem(
-                                    member = member,
-                                    isAdmin = state.isCurrentUserAdmin,
-                                    onRemove = {
-                                        viewModel.removeMember(groupId, member.id)
-                                    }
-                                )
-                            }
-                            
-                            TextButton(
-                                onClick = { showInviteDialog = true },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp)
-                            ) {
-                                Icon(Icons.Default.PersonAdd, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Invite Member")
-                            }
-                        }
-                    }
-                    
-                    // Danger Zone Section
-                    item {
-                        SettingsSection(
-                            title = "Danger Zone",
-                            containerColor = MaterialTheme.colorScheme.errorContainer
-                        ) {
-                            TextButton(
-                                onClick = { showLeaveDialog = true },
-                                colors = ButtonDefaults.textButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.error
-                                ),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp)
-                            ) {
-                                Icon(Icons.Default.ExitToApp, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Leave Group")
-                            }
-                            
-                            if (state.isCurrentUserAdmin) {
-                                TextButton(
-                                    onClick = { showDeleteDialog = true },
-                                    colors = ButtonDefaults.textButtonColors(
-                                        contentColor = MaterialTheme.colorScheme.error
-                                    ),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp)
-                                ) {
-                                    Icon(Icons.Default.Delete, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Delete Group")
-                                }
-                            }
-                        }
+                    // Group Name
+                    SettingsItem(
+                        icon = Icons.Default.Edit,
+                        title = "Edit Group Name",
+                        subtitle = "Change the name of your group",
+                        onClick = { /* TODO: Implement name editing */ }
+                    )
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 8.dp),
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+
+                    // Currency
+                    SettingsItem(
+                        icon = Icons.Default.AttachMoney,
+                        title = "Currency",
+                        subtitle = "Current: $selectedCurrency",
+                        onClick = { showCurrencyDialog = true }
+                    )
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 8.dp),
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+
+                    // Share QR Code
+                    SettingsItem(
+                        icon = Icons.Default.QrCode,
+                        title = "Share Group",
+                        subtitle = "Generate QR code for inviting members",
+                        onClick = { showQRDialog = true }
+                    )
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 8.dp),
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+
+                    // Leave Group
+                    SettingsItem(
+                        icon = Icons.AutoMirrored.Filled.ExitToApp,
+                        title = "Leave Group",
+                        subtitle = "Remove yourself from this group",
+                        onClick = { /* TODO: Implement leave group */ },
+                        textColor = MaterialTheme.colorScheme.error
+                    )
+
+                    // Delete Group (only for group creator)
+                    if (group.createdBy == TestData.TEST_USERS[0].id) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            thickness = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+                        SettingsItem(
+                            icon = Icons.Default.Delete,
+                            title = "Delete Group",
+                            subtitle = "Permanently delete this group",
+                            onClick = { showDeleteDialog = true },
+                            textColor = MaterialTheme.colorScheme.error
+                        )
                     }
                 }
             }
-            
-            is GroupSettingsUiState.Error -> {
-                errorMessage = (uiState as GroupSettingsUiState.Error).message
-                showErrorSnackbar = true
-            }
-            
-            else -> Unit
         }
-        
-        // Dialogs
-        if (showRenameDialog) {
+
+        // QR Code Dialog
+        if (showQRDialog) {
             AlertDialog(
-                onDismissRequest = { showRenameDialog = false },
-                title = { Text("Rename Group") },
+                onDismissRequest = { showQRDialog = false },
+                title = { Text("Share Group") },
                 text = {
-                    OutlinedTextField(
-                        value = newGroupName,
-                        onValueChange = { newGroupName = it },
-                        label = { Text("Group Name") },
-                        singleLine = true
-                    )
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            if (newGroupName.isNotBlank()) {
-                                viewModel.updateGroupName(groupId, newGroupName)
-                                showRenameDialog = false
-                            }
-                        }
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Save")
+                        QRCodeGenerator(
+                            content = "fairshare://join?groupId=${group.id}",
+                            modifier = Modifier.padding(16.dp)
+                        )
+                        Text(
+                            text = "Scan this QR code to join the group",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = 16.dp)
+                        )
                     }
                 },
-                dismissButton = {
-                    TextButton(onClick = { showRenameDialog = false }) {
-                        Text("Cancel")
+                confirmButton = {
+                    TextButton(onClick = { showQRDialog = false }) {
+                        Text("Close")
                     }
                 }
             )
         }
-        
-        if (showInviteDialog) {
-            AlertDialog(
-                onDismissRequest = { showInviteDialog = false },
-                title = { Text("Invite Member") },
-                text = {
-                    OutlinedTextField(
-                        value = inviteEmail,
-                        onValueChange = { inviteEmail = it },
-                        label = { Text("Email Address") },
-                        singleLine = true
-                    )
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            if (inviteEmail.isNotBlank()) {
-                                viewModel.inviteMember(groupId, inviteEmail)
-                                showInviteDialog = false
-                                inviteEmail = ""
-                            }
-                        }
-                    ) {
-                        Text("Invite")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showInviteDialog = false }) {
-                        Text("Cancel")
-                    }
-                }
-            )
-        }
-        
-        if (showLeaveDialog) {
-            AlertDialog(
-                onDismissRequest = { showLeaveDialog = false },
-                title = { Text("Leave Group") },
-                text = { Text("Are you sure you want to leave this group?") },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            viewModel.leaveGroup(groupId)
-                            showLeaveDialog = false
-                            navController.navigate(Screen.GroupList.route) {
-                                popUpTo(Screen.GroupList.route) { inclusive = true }
-                            }
-                        }
-                    ) {
-                        Text("Leave")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showLeaveDialog = false }) {
-                        Text("Cancel")
-                    }
-                }
-            )
-        }
-        
+
+        // Delete Confirmation Dialog
         if (showDeleteDialog) {
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = false },
                 title = { Text("Delete Group") },
-                text = { Text("Are you sure you want to delete this group? This action cannot be undone.") },
+                text = {
+                    Text("Are you sure you want to delete this group? This action cannot be undone.")
+                },
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            viewModel.deleteGroup(groupId)
+                            // TODO: Implement group deletion
                             showDeleteDialog = false
-                            navController.navigate(Screen.GroupList.route) {
-                                popUpTo(Screen.GroupList.route) { inclusive = true }
-                            }
+                            navController.navigateUp()
                         }
                     ) {
-                        Text("Delete")
+                        Text("Delete", color = MaterialTheme.colorScheme.error)
                     }
                 },
                 dismissButton = {
@@ -318,13 +239,94 @@ fun GroupSettingsScreen(
                 }
             )
         }
+
+        // Currency Selection Dialog
+        if (showCurrencyDialog) {
+            AlertDialog(
+                onDismissRequest = { showCurrencyDialog = false },
+                title = { Text("Select Currency") },
+                text = {
+                    Column {
+                        CurrencyUtils.getAllCurrencies().forEach { currency ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = currency == selectedCurrency,
+                                    onClick = {
+                                        selectedCurrency = currency
+                                        showCurrencyDialog = false
+                                    }
+                                )
+                                Text(
+                                    text = "${CurrencyUtils.getCurrencyDisplayName(currency)}",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    modifier = Modifier.padding(start = 8.dp)
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = { }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    textColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = textColor,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = textColor
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
 @Composable
 private fun SettingsSection(
     title: String,
-    containerColor: Color = MaterialTheme.colorScheme.surface,
+    containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.surface,
     content: @Composable () -> Unit
 ) {
     Column(
@@ -343,48 +345,6 @@ private fun SettingsSection(
             modifier = Modifier.fillMaxWidth()
         ) {
             content()
-        }
-    }
-}
-
-@Composable
-private fun SettingsItem(
-    title: String,
-    subtitle: String? = null,
-    icon: ImageVector? = null,
-    onClick: () -> Unit
-) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (icon != null) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge
-                )
-                if (subtitle != null) {
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
         }
     }
 }

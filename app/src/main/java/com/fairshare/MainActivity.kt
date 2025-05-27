@@ -6,10 +6,11 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import androidx.navigation.compose.rememberNavController
-import com.fairshare.navigation.FairShareNavGraph
+import com.fairshare.navigation.NavGraph
 import com.fairshare.ui.theme.FairShareTheme
 
 class MainActivity : ComponentActivity() {
@@ -20,13 +21,15 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         
         setContent {
-            FairShareTheme {
+            var darkMode by remember { mutableStateOf(false) }
+            
+            FairShareTheme(darkTheme = darkMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     val navController = rememberNavController()
-                    FairShareNavGraph(navController = navController)
+                    NavGraph(navController = navController)
                 }
             }
         }

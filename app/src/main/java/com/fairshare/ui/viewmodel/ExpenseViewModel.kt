@@ -15,12 +15,17 @@ sealed class ExpenseUiState {
     object Loading : ExpenseUiState()
     data class Success(
         val expense: FirebaseExpense? = null,
-        val groupMembers: List<GroupMember> = emptyList(),
+        val groupMembers: Map<String, GroupMember> = emptyMap(),
         val categories: List<String> = emptyList(),
-        val selectedCurrency: String = CurrencyUtils.CurrencyCodes.PHP,
         val splits: Map<String, Double> = emptyMap()
     ) : ExpenseUiState()
     data class Error(val message: String) : ExpenseUiState()
+}
+
+enum class SplitType {
+    EQUAL,
+    PERCENTAGE,
+    CUSTOM
 }
 
 class ExpenseViewModel(
@@ -48,10 +53,8 @@ class ExpenseViewModel(
                 if (expense != null) {
                     val groupMembers = firebaseRepository.getGroupMembers(expense.groupId)
                     _uiState.value = ExpenseUiState.Success(
-                        expense = expense,
-                        groupMembers = groupMembers,
+                        groupMembers = groupMembers.associateBy { it.id },
                         categories = defaultCategories,
-                        selectedCurrency = expense.currency,
                         splits = expense.splits
                     )
                 } else {
@@ -70,8 +73,8 @@ class ExpenseViewModel(
         paidBy: String,
         splits: Map<String, Double>,
         category: String,
-        currency: String = CurrencyUtils.CurrencyCodes.PHP,
-        date: Date = Date()
+        currency: String,
+        date: Date
     ) {
         viewModelScope.launch {
             _uiState.value = ExpenseUiState.Loading
@@ -93,6 +96,21 @@ class ExpenseViewModel(
 
                 val expenseId = firebaseRepository.addExpense(expense)
                 loadExpense(expenseId)
+
+                // Log activity
+                val activity = GroupActivity(
+                    groupId = groupId,
+                    actorId = paidBy,
+                    type = ActivityType.EXPENSE_CREATED,
+                    description = "Added expense: $description",
+                    metadata = mapOf(
+                        "expenseId" to expense.id,
+                        "amount" to amount.toString(),
+                        "currency" to currency
+                    )
+                )
+                firebaseRepository.createActivity(activity)
+
             } catch (e: Exception) {
                 _uiState.value = ExpenseUiState.Error(e.message ?: "Failed to create expense")
             }
@@ -144,25 +162,74 @@ class ExpenseViewModel(
         }
     }
 
+    fun loadGroupData(groupId: String) {
+        viewModelScope.launch {
+            _uiState.value = ExpenseUiState.Loading
+            try {
+                val group = firebaseRepository.getGroup(groupId)
+                    ?: throw Exception("Group not found")
+
+                _uiState.value = ExpenseUiState.Success(
+                    categories = listOf(
+                        "Food",
+                        "Transportation",
+                        "Entertainment",
+                        "Shopping",
+                        "Utilities",
+                        "Others"
+                    )
+                )
+            } catch (e: Exception) {
+                _uiState.value = ExpenseUiState.Error(e.message ?: "Failed to load group data")
+            }
+        }
+    }
+
+    fun loadGroupMembers(groupId: String) {
+        viewModelScope.launch {
+            try {
+                val members = firebaseRepository.getGroupMembers(groupId)
+                    .associateBy { it.id }
+
+                val currentState = _uiState.value
+                if (currentState is ExpenseUiState.Success) {
+                    _uiState.value = currentState.copy(
+                        groupMembers = members
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = ExpenseUiState.Error(e.message ?: "Failed to load group members")
+            }
+        }
+    }
+
     fun calculateSplits(
         amount: Double,
-        members: List<GroupMember>,
-        splitType: SplitType = SplitType.EQUAL
+        members: Map<String, GroupMember>,
+        splitType: SplitType
     ): Map<String, Double> {
         return when (splitType) {
             SplitType.EQUAL -> {
                 val splitAmount = amount / members.size
-                members.associate { it.id to splitAmount }
+                members.mapValues { splitAmount }
             }
             SplitType.PERCENTAGE -> {
-                // Default to equal percentages
                 val percentage = 100.0 / members.size
-                members.associate { it.id to (amount * percentage / 100.0) }
+                members.mapValues { amount * (percentage / 100) }
             }
             SplitType.CUSTOM -> {
-                // Return empty map for custom splits, to be filled by user
-                members.associate { it.id to 0.0 }
+                // Custom splits should be provided by the UI
+                emptyMap()
             }
+        }
+    }
+
+    fun updateSplits(splits: Map<String, Double>) {
+        val currentState = _uiState.value
+        if (currentState is ExpenseUiState.Success) {
+            _uiState.value = currentState.copy(
+                splits = splits
+            )
         }
     }
 
@@ -172,24 +239,28 @@ class ExpenseViewModel(
         return kotlin.math.abs(totalSplit - totalAmount) < 0.01 // Allow for small floating-point differences
     }
 
-    fun loadGroupData(groupId: String) {
-        viewModelScope.launch {
-            _uiState.value = ExpenseUiState.Loading
-            try {
-                val groupMembers = firebaseRepository.getGroupMembers(groupId)
-                _uiState.value = ExpenseUiState.Success(
-                    groupMembers = groupMembers,
-                    categories = defaultCategories
-                )
-            } catch (e: Exception) {
-                _uiState.value = ExpenseUiState.Error(e.message ?: "Failed to load group data")
-            }
+    suspend fun addExpense(
+        groupId: String,
+        description: String,
+        amount: Double,
+        paidBy: String,
+        splits: Map<String, Double>,
+        category: String = "Other"
+    ): Result<String> {
+        return try {
+            val expense = FirebaseExpense(
+                groupId = groupId,
+                description = description,
+                amount = amount,
+                paidBy = paidBy,
+                splits = splits,
+                category = category
+            )
+
+            val expenseId = firebaseRepository.addExpense(expense)
+            Result.success(expenseId)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
-}
-
-enum class SplitType {
-    EQUAL,
-    PERCENTAGE,
-    CUSTOM
 } 

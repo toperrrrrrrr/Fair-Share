@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.tasks.await
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.FieldValue
 
 class FirebaseRepository {
     private val auth = FirebaseAuth.getInstance()
@@ -224,5 +225,206 @@ class FirebaseRepository {
             .get()
             .await()
         emit(snapshot.toObjects(FirebaseNotification::class.java))
+    }
+
+    // Group Member operations
+    suspend fun getGroupMembers(groupId: String): List<GroupMember> {
+        return try {
+            val membersSnapshot = groupsCollection
+                .document(groupId)
+                .collection("members")
+                .get()
+                .await()
+            
+            val memberIds = membersSnapshot.documents.map { it.id }
+            
+            // Get full user details for each member
+            val memberDetails = memberIds.map { userId ->
+                val userDoc = usersCollection.document(userId).get().await()
+                val memberDoc = membersSnapshot.documents.first { it.id == userId }
+                
+                GroupMember(
+                    id = userId,
+                    name = userDoc.getString("name") ?: "",
+                    email = userDoc.getString("email") ?: "",
+                    role = GroupMemberRole.valueOf(memberDoc.getString("role") ?: GroupMemberRole.MEMBER.name),
+                    joinedAt = memberDoc.getTimestamp("joinedAt") ?: Timestamp.now()
+                )
+            }
+            
+            memberDetails
+        } catch (e: Exception) {
+            throw Exception("Failed to get group members: ${e.message}")
+        }
+    }
+
+    // Group Invitation Methods
+    suspend fun createInvitation(invitation: GroupInvitation) {
+        try {
+            val invitationRef = db.collection("invitations").document()
+            val invitationWithId = invitation.copy(id = invitationRef.id)
+            invitationRef.set(invitationWithId).await()
+        } catch (e: Exception) {
+            throw Exception("Failed to create invitation: ${e.message}")
+        }
+    }
+
+    suspend fun getGroupInvitations(groupId: String): List<GroupInvitation> {
+        return try {
+            db.collection("invitations")
+                .whereEqualTo("groupId", groupId)
+                .get()
+                .await()
+                .toObjects(GroupInvitation::class.java)
+        } catch (e: Exception) {
+            throw Exception("Failed to get group invitations: ${e.message}")
+        }
+    }
+
+    suspend fun getInvitationByEmail(groupId: String, email: String): GroupInvitation? {
+        return try {
+            db.collection("invitations")
+                .whereEqualTo("groupId", groupId)
+                .whereEqualTo("email", email)
+                .whereEqualTo("status", InvitationStatus.PENDING)
+                .get()
+                .await()
+                .toObjects(GroupInvitation::class.java)
+                .firstOrNull()
+        } catch (e: Exception) {
+            throw Exception("Failed to get invitation: ${e.message}")
+        }
+    }
+
+    suspend fun deleteInvitation(invitationId: String) {
+        try {
+            db.collection("invitations")
+                .document(invitationId)
+                .delete()
+                .await()
+        } catch (e: Exception) {
+            throw Exception("Failed to delete invitation: ${e.message}")
+        }
+    }
+
+    // Member Management Methods
+    suspend fun removeMemberFromGroup(groupId: String, memberId: String) {
+        try {
+            // Remove from members collection
+            groupsCollection
+                .document(groupId)
+                .collection("members")
+                .document(memberId)
+                .delete()
+                .await()
+
+            // Update group member count
+            groupsCollection
+                .document(groupId)
+                .update("memberCount", FieldValue.increment(-1))
+                .await()
+        } catch (e: Exception) {
+            throw Exception("Failed to remove member: ${e.message}")
+        }
+    }
+
+    suspend fun updateMemberRole(groupId: String, memberId: String, newRole: GroupMemberRole) {
+        try {
+            groupsCollection
+                .document(groupId)
+                .collection("members")
+                .document(memberId)
+                .update("role", newRole)
+                .await()
+        } catch (e: Exception) {
+            throw Exception("Failed to update member role: ${e.message}")
+        }
+    }
+
+    // Activity Logging Methods
+    suspend fun createActivity(activity: GroupActivity) {
+        try {
+            val activityRef = db.collection("activities").document()
+            val activityWithId = activity.copy(id = activityRef.id)
+            activityRef.set(activityWithId).await()
+        } catch (e: Exception) {
+            throw Exception("Failed to create activity: ${e.message}")
+        }
+    }
+
+    suspend fun getGroupActivities(
+        groupId: String,
+        types: List<ActivityType>? = null,
+        actorId: String? = null,
+        startDate: Timestamp? = null,
+        endDate: Timestamp? = null,
+        limit: Int? = null
+    ): List<GroupActivity> {
+        try {
+            var query = db.collection("activities")
+                .whereEqualTo("groupId", groupId)
+
+            // Apply filters if provided
+            if (types != null && types.isNotEmpty()) {
+                query = query.whereIn("type", types)
+            }
+            if (actorId != null) {
+                query = query.whereEqualTo("actorId", actorId)
+            }
+            if (startDate != null) {
+                query = query.whereGreaterThanOrEqualTo("createdAt", startDate)
+            }
+            if (endDate != null) {
+                query = query.whereLessThanOrEqualTo("createdAt", endDate)
+            }
+
+            // Order by creation date
+            query = query.orderBy("createdAt", Query.Direction.DESCENDING)
+
+            // Apply limit if provided
+            if (limit != null) {
+                query = query.limit(limit.toLong())
+            }
+
+            return query.get().await().toObjects(GroupActivity::class.java)
+        } catch (e: Exception) {
+            throw Exception("Failed to get group activities: ${e.message}")
+        }
+    }
+
+    suspend fun getGroup(groupId: String): FirebaseGroup? {
+        return try {
+            val doc = groupsCollection.document(groupId).get().await()
+            if (doc.exists()) {
+                doc.toObject(FirebaseGroup::class.java)
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            throw Exception("Failed to get group: ${e.message}")
+        }
+    }
+
+    // Helper method to log activity with proper error handling
+    suspend fun logGroupActivity(
+        groupId: String,
+        actorId: String,
+        type: ActivityType,
+        description: String,
+        metadata: Map<String, Any> = emptyMap()
+    ) {
+        try {
+            val activity = GroupActivity(
+                groupId = groupId,
+                actorId = actorId,
+                type = type,
+                description = description,
+                metadata = metadata
+            )
+            createActivity(activity)
+        } catch (e: Exception) {
+            // Log error but don't throw to prevent disrupting main operation
+            println("Failed to log activity: ${e.message}")
+        }
     }
 } 

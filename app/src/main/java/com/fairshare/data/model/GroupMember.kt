@@ -14,5 +14,5 @@ data class GroupMember(
     val name: String = "",
     val email: String = "",
     val role: GroupMemberRole = GroupMemberRole.MEMBER,
-    val joinedAt: Timestamp? = null
+    val joinedAt: Timestamp = Timestamp.now()
 ) 

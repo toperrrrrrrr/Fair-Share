@@ -31,6 +31,17 @@ import com.fairshare.auth.AuthUiState
 import com.fairshare.navigation.Screen
 import com.fairshare.ui.components.GoogleSignInButton
 import com.fairshare.ui.viewmodel.AuthViewModel
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.widget.Toast
+
+// Add debug flag constant
+private const val IS_DEBUG = true  // Temporary solution until BuildConfig is properly set up
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,27 +53,64 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
     var showError by remember { mutableStateOf(false) }
+    
+    val context = LocalContext.current
+    val activity = context as Activity
+    
+    // Configure Google Sign In
+    val gso = remember {
+        GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestEmail()  // Temporarily remove requestIdToken until web client ID is configured
+            .build()
+    }
+    
+    val googleSignInClient = remember {
+        GoogleSignIn.getClient(activity, gso)
+    }
+    
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            try {
+                val account = task.getResult(ApiException::class.java)
+                account?.idToken?.let { token ->
+                    viewModel.signInWithGoogle(token)
+                } ?: run {
+                    Toast.makeText(context, "Google sign in failed: No ID token", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: ApiException) {
+                Toast.makeText(context, "Google sign in failed: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(uiState) {
         when (uiState) {
             is AuthUiState.Success -> {
-                if (viewModel.isEmailVerified()) {
-                    navController.navigate(Screen.Main.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
-                    }
-                } else {
-                    navController.navigate(Screen.EmailVerification.route)
+                showError = false
+                navController.navigate(Screen.GroupList.route) {
+                    popUpTo(Screen.Login.route) { inclusive = true }
                 }
             }
             is AuthUiState.Error -> {
+                val errorMessage = (uiState as AuthUiState.Error).message
+                Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
                 showError = true
             }
-            else -> {
+            is AuthUiState.Loading -> {
                 showError = false
             }
+            else -> {}
         }
+    }
+
+    // Add debug logging for skip login
+    LaunchedEffect(Unit) {
+        viewModel.initGoogleSignIn(context)
     }
 
     Scaffold { padding ->
@@ -112,7 +160,10 @@ fun LoginScreen(
 
             if (showError) {
                 Text(
-                    text = (uiState as? AuthUiState.Error)?.message ?: "Invalid email or password",
+                    text = when (uiState) {
+                        is AuthUiState.Error -> (uiState as AuthUiState.Error).message
+                        else -> "An error occurred during sign in"
+                    },
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 8.dp)
@@ -136,23 +187,50 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Dev Skip Login Button (using IS_DEBUG constant)
+            if (IS_DEBUG) {
+                OutlinedButton(
+                    onClick = { 
+                        Toast.makeText(context, "Attempting dev login...", Toast.LENGTH_SHORT).show()
+                        viewModel.skipLoginForDev()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Skip Login (Dev Only)")
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Divider(modifier = Modifier.weight(1f))
-                Text(
-                    text = "  or  ",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                HorizontalDivider(
+                    modifier = Modifier.weight(1f),
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                 )
-                Divider(modifier = Modifier.weight(1f))
+                Text(
+                    text = "OR",
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                HorizontalDivider(
+                    modifier = Modifier.weight(1f),
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             GoogleSignInButton(
-                onClick = { /* Handle Google Sign In */ },
+                onClick = { 
+                    launcher.launch(googleSignInClient.signInIntent)
+                },
                 modifier = Modifier.fillMaxWidth()
             )
 

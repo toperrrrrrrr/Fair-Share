@@ -62,6 +62,7 @@ class MainViewModel(
     private fun loadCurrentUser() {
         viewModelScope.launch {
             try {
+                _currentUser.value = UiState.Loading
                 firebaseRepository.getCurrentUser()
                     .catch { e -> _currentUser.value = UiState.Error(e.message ?: "Error loading user") }
                     .collect { user ->
@@ -81,20 +82,30 @@ class MainViewModel(
     private fun loadUserData(userId: String) {
         // Load groups
         viewModelScope.launch {
-            firebaseRepository.getUserGroups(userId)
-                .catch { e -> _userGroups.value = UiState.Error(e.message ?: "Error loading groups") }
-                .collect { groups ->
-                    _userGroups.value = UiState.Success(groups)
-                }
+            try {
+                _userGroups.value = UiState.Loading
+                firebaseRepository.getUserGroups(userId)
+                    .catch { e -> _userGroups.value = UiState.Error(e.message ?: "Error loading groups") }
+                    .collect { groups ->
+                        _userGroups.value = UiState.Success(groups)
+                    }
+            } catch (e: Exception) {
+                _userGroups.value = UiState.Error(e.message ?: "Error loading groups")
+            }
         }
 
         // Load notifications
         viewModelScope.launch {
-            firebaseRepository.getUserNotifications(userId)
-                .catch { e -> _notifications.value = UiState.Error(e.message ?: "Error loading notifications") }
-                .collect { notifications ->
-                    _notifications.value = UiState.Success(notifications)
-                }
+            try {
+                _notifications.value = UiState.Loading
+                firebaseRepository.getUserNotifications(userId)
+                    .catch { e -> _notifications.value = UiState.Error(e.message ?: "Error loading notifications") }
+                    .collect { notifications ->
+                        _notifications.value = UiState.Success(notifications)
+                    }
+            } catch (e: Exception) {
+                _notifications.value = UiState.Error(e.message ?: "Error loading notifications")
+            }
         }
     }
 
@@ -106,41 +117,66 @@ class MainViewModel(
     private fun loadGroupData(groupId: String) {
         // Load expenses
         viewModelScope.launch {
-            firebaseRepository.getGroupExpenses(groupId)
-                .catch { e -> _groupExpenses.value = UiState.Error(e.message ?: "Error loading expenses") }
-                .collect { expenses ->
-                    _groupExpenses.value = UiState.Success(expenses)
-                }
+            try {
+                _groupExpenses.value = UiState.Loading
+                firebaseRepository.getGroupExpenses(groupId)
+                    .catch { e -> _groupExpenses.value = UiState.Error(e.message ?: "Error loading expenses") }
+                    .collect { expenses ->
+                        _groupExpenses.value = UiState.Success(expenses)
+                    }
+            } catch (e: Exception) {
+                _groupExpenses.value = UiState.Error(e.message ?: "Error loading expenses")
+            }
         }
 
         // Load balances
         viewModelScope.launch {
-            firebaseRepository.getGroupBalances(groupId)
-                .catch { e -> _groupBalances.value = UiState.Error(e.message ?: "Error loading balances") }
-                .collect { balances ->
-                    _groupBalances.value = UiState.Success(balances)
-                }
+            try {
+                _groupBalances.value = UiState.Loading
+                firebaseRepository.getGroupBalances(groupId)
+                    .catch { e -> _groupBalances.value = UiState.Error(e.message ?: "Error loading balances") }
+                    .collect { balances ->
+                        _groupBalances.value = UiState.Success(balances)
+                    }
+            } catch (e: Exception) {
+                _groupBalances.value = UiState.Error(e.message ?: "Error loading balances")
+            }
         }
     }
 
     // Group operations
     suspend fun createGroup(name: String, description: String, currency: String): Result<String> {
         return try {
-            val currentUserId = (currentUser.value as? UiState.Success)?.data?.id
-                ?: return Result.failure(Exception("User not logged in"))
+            val currentUserId = when (val userState = _currentUser.value) {
+                is UiState.Success -> userState.data.id
+                else -> return Result.failure(Exception("User not logged in"))
+            }
 
             val group = FirebaseGroup(
                 name = name,
                 description = description,
                 currency = currency,
                 members = listOf(currentUserId),
-                createdBy = currentUserId
+                createdBy = currentUserId,
+                createdAt = Timestamp.now(),
+                updatedAt = Timestamp.now()
             )
 
             val groupId = firebaseRepository.createGroup(group)
+            
+            // Refresh user's groups
+            loadUserData(currentUserId)
+            
             Result.success(groupId)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    fun refreshUserData() {
+        when (val userState = _currentUser.value) {
+            is UiState.Success -> loadUserData(userState.data.id)
+            else -> loadCurrentUser()
         }
     }
 
@@ -177,17 +213,20 @@ class MainViewModel(
     }
 
     // Settlement operations
-    suspend fun createSettlement(fromUser: String, toUser: String, amount: Double): Result<String> {
+    suspend fun createSettlement(fromUserId: String, toUserId: String, amount: Double): Result<String> {
         return try {
             val groupId = selectedGroup.value?.id
                 ?: return Result.failure(Exception("No group selected"))
 
+            val group = selectedGroup.value
+                ?: return Result.failure(Exception("No group selected"))
+
             val settlement = FirebaseSettlement(
                 groupId = groupId,
-                fromUser = fromUser,
-                toUser = toUser,
+                fromUserId = fromUserId,
+                toUserId = toUserId,
                 amount = amount,
-                currency = selectedGroup.value?.currency ?: CurrencyUtils.CurrencyCodes.PHP
+                currency = group.currency
             )
 
             val settlementId = firebaseRepository.createSettlement(settlement)
@@ -202,15 +241,18 @@ class MainViewModel(
     }
 
     private suspend fun createSettlementNotifications(settlement: FirebaseSettlement) {
+        val group = firebaseRepository.getGroup(settlement.groupId)
+            ?: throw Exception("Group not found")
+
         // Notification for the person who needs to pay
         firebaseRepository.createNotification(
             FirebaseNotification(
                 type = NotificationType.SETTLEMENT_REQUESTED,
-                recipientId = settlement.fromUser,
-                senderId = settlement.toUser,
+                recipientId = settlement.fromUserId,
+                senderId = settlement.toUserId,
                 groupId = settlement.groupId,
                 settlementId = settlement.id,
-                message = "You need to pay ${CurrencyUtils.formatAmount(settlement.amount, settlement.currency)}"
+                message = "You need to pay ${CurrencyUtils.formatAmount(settlement.amount, group.currency)}"
             )
         )
 
@@ -218,11 +260,11 @@ class MainViewModel(
         firebaseRepository.createNotification(
             FirebaseNotification(
                 type = NotificationType.SETTLEMENT_REQUESTED,
-                recipientId = settlement.toUser,
-                senderId = settlement.fromUser,
+                recipientId = settlement.toUserId,
+                senderId = settlement.fromUserId,
                 groupId = settlement.groupId,
                 settlementId = settlement.id,
-                message = "You will receive ${CurrencyUtils.formatAmount(settlement.amount, settlement.currency)}"
+                message = "You will receive ${CurrencyUtils.formatAmount(settlement.amount, group.currency)}"
             )
         )
     }

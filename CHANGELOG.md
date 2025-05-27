@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Upcoming
+- Receipt Management System
+  - Image upload functionality
+  - OCR integration
+  - Receipt gallery
+  - Receipt editing
+- Enhanced User Profile System
+  - Profile picture management
+  - User preferences
+  - Notification settings
+  - Language preferences
+- Advanced Group Features
+  - Invitation system
+  - Search and filtering
+  - Archiving functionality
+  - Enhanced member management
+
 ### Added
 - Authentication system enhancements
   - Improved Firebase Auth integration
@@ -32,6 +49,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Implemented Screen sealed class
   - Added type-safe route parameters
   - Improved navigation flow
+- Expense management system
+  - Implemented ExpenseViewModel with CRUD operations
+  - Added split calculations (Equal, Percentage, Custom)
+  - Created AddExpenseScreen with form validation
+  - Added category management
+  - Implemented currency handling
+- Balance calculation system
+  - Core balance calculation logic
+  - Settlement suggestions algorithm
+  - Balance visualization
+  - Multi-currency support
+  - Real-time balance updates
 - Biometric authentication support
   - Fingerprint and Face ID integration
   - Secure key storage using Android Keystore
@@ -79,6 +108,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Improved member handling
   - Better role management
   - Enhanced currency support
+- Improved expense handling
+  - Better split calculations
+  - Enhanced validation
+  - Real-time updates
+- Enhanced balance management
+  - Optimized settlement algorithm
+  - Improved visualization
+  - Better currency handling
 
 ### Fixed
 - Type mismatch in GoogleAuthManager
@@ -87,6 +124,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Proper suspend function implementation
 - Firebase import conflicts
 - Currency formatting issues
+- Balance calculation edge cases
+- Settlement amount rounding issues
+
+### Security
+- Enhanced data encryption for sensitive information
+- Improved API key management
+- Added security headers
+- Implemented proper session management
+- Enhanced input validation
+
+### Performance
+- Optimized image loading and caching
+- Improved app startup time
+- Enhanced database queries
+- Reduced network calls
+- Implemented proper pagination
+
+## [0.2.0] - 2024-03-XX
+### Added
+- Enhanced Firebase Auth integration
+- Improved error handling system
+- Real-time updates for expenses
+- Multi-currency support
+- Settlement calculation system
+- Biometric authentication
+- Email verification flow
+- Balance visualization improvements
+- Push notification system
+
+### Changed
+- Improved authentication flow
+- Enhanced group management
+- Updated navigation structure
+- Optimized balance calculations
+- Enhanced UI/UX elements
+
+### Fixed
+- Currency formatting issues
+- Balance calculation edge cases
+- Settlement amount rounding
+- Firebase integration bugs
+- Navigation state preservation
 
 ## [0.1.0] - 2024-03-XX
 ### Added

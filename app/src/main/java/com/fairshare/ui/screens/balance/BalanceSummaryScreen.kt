@@ -4,49 +4,34 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.fairshare.data.model.Settlement
+import com.fairshare.data.TestData
+import com.fairshare.data.model.*
+import com.fairshare.ui.components.BalanceVisualization
 import com.fairshare.utils.CurrencyUtils
-import com.fairshare.utils.SettlementUtils
-
-data class BalanceInfo(
-    val userId: String,
-    val name: String,
-    val amount: Double,
-    val currency: String
-)
-
-data class DebtInfo(
-    val fromUser: String,
-    val toUser: String,
-    val amount: Double,
-    val currency: String
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BalanceSummaryScreen(
     navController: NavController,
+    groupId: String,
     modifier: Modifier = Modifier
 ) {
-    val balances = remember { mutableStateListOf<BalanceInfo>() }
-    
-    // Convert balances to map for settlement calculation
-    val balanceMap = remember(balances) {
-        balances.associate { it.userId to it.amount }
-    }
-    
-    val settlements = remember(balanceMap) {
-        SettlementUtils.suggestSettlements(balanceMap)
-    }
+    // For testing, calculate balances from test data
+    val group = TestData.TEST_GROUPS.find { group -> group.id == groupId }
+    val expenses = TestData.TEST_EXPENSES.filter { expense -> expense.groupId == groupId }
+    val users = TestData.TEST_USERS.associateBy { user -> user.id }
+
+    // Calculate balances
+    val balances = calculateBalances(expenses, group?.members ?: emptyList())
 
     Scaffold(
         topBar = {
@@ -54,142 +39,212 @@ fun BalanceSummaryScreen(
                 title = { Text("Balance Summary") },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
         }
     ) { padding ->
-        LazyColumn(
+        if (group == null) {
+            Box(
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Group not found",
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center
+                )
+            }
+            return@Scaffold
+        }
+
+        BalanceVisualization(
+            balances = balances,
+            users = users,
+            currency = group.currency,
             modifier = modifier
                 .fillMaxSize()
                 .padding(padding)
-        ) {
-            item {
-                Text(
-                    text = "Here's the most efficient way to settle up:",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
-                )
-            }
-            
-            items(settlements) { settlement ->
-                SettlementItem(settlement = settlement)
-            }
-        }
+                .padding(16.dp)
+        )
     }
 }
 
-@Composable
-private fun BalanceItem(
-    balance: BalanceInfo,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.AccountCircle,
-                    contentDescription = null,
-                    modifier = Modifier.size(40.dp)
-                )
-                Text(
-                    text = balance.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-            Text(
-                text = CurrencyUtils.formatAmount(balance.amount, balance.currency),
-                style = MaterialTheme.typography.bodyLarge,
-                color = when {
-                    balance.amount > 0 -> Color(0xFF4CAF50) // Green
-                    balance.amount < 0 -> Color(0xFFF44336) // Red
-                    else -> MaterialTheme.colorScheme.onSurface
-                }
+private fun calculateBalances(expenses: List<Expense>, members: List<String>): List<Balance> {
+    val balanceMap = mutableMapOf<String, Balance>()
+    
+    // Initialize balances for all members
+    members.forEach { memberId ->
+        balanceMap[memberId] = Balance(
+            userId = memberId,
+            paid = 0.0,
+            owed = 0.0
+        )
+    }
+
+    // Calculate paid and owed amounts
+    expenses.forEach { expense ->
+        // Update amount paid
+        val currentPaidBalance = balanceMap[expense.paidBy] ?: Balance(expense.paidBy, 0.0, 0.0)
+        balanceMap[expense.paidBy] = currentPaidBalance.copy(
+            paid = currentPaidBalance.paid + expense.amount
+        )
+
+        // Update amounts owed
+        expense.paidFor.forEach { (userId, amount) ->
+            val currentOwedBalance = balanceMap[userId] ?: Balance(userId, 0.0, 0.0)
+            balanceMap[userId] = currentOwedBalance.copy(
+                owed = currentOwedBalance.owed + amount
             )
         }
     }
+
+    return balanceMap.values.toList()
 }
 
 @Composable
-private fun DebtItem(
-    debt: DebtInfo,
+private fun TotalBalanceCard(
+    totalBalance: Double,
+    currency: String,
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = debt.fromUser,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.weight(1f)
-            )
-            Icon(
-                imageVector = Icons.Default.ArrowForward,
-                contentDescription = "owes",
-                modifier = Modifier.padding(horizontal = 8.dp)
-            )
-            Text(
-                text = debt.toUser,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.weight(1f)
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Text(
-                text = CurrencyUtils.formatAmount(debt.amount, debt.currency),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-    }
-}
-
-@Composable
-fun SettlementItem(
-    settlement: Settlement,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .padding(bottom = 8.dp)
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "${settlement.fromUser} pays ${settlement.toUser}",
-                style = MaterialTheme.typography.bodyLarge
+                text = "Total Balance",
+                style = MaterialTheme.typography.titleMedium
             )
             Text(
-                text = "$${settlement.amount}",
-                style = MaterialTheme.typography.titleLarge
+                text = CurrencyUtils.formatAmount(totalBalance, currency),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
             )
+        }
+    }
+}
+
+@Composable
+private fun BalanceCard(
+    balance: Balance,
+    members: Map<String, GroupMember>,
+    currency: String,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = members[balance.userId]?.name ?: "Unknown User",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = "Paid",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = CurrencyUtils.formatAmount(balance.paid, currency),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Column {
+                    Text(
+                        text = "Owed",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = CurrencyUtils.formatAmount(balance.owed, currency),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Column {
+                    Text(
+                        text = "Net",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = CurrencyUtils.formatAmount(balance.net, currency),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = if (balance.net >= 0) MaterialTheme.colorScheme.primary
+                               else MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettlementSuggestionCard(
+    suggestion: SettlementSuggestion,
+    members: Map<String, GroupMember>,
+    currency: String,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = members[suggestion.fromUserId]?.name ?: "Unknown User",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "should pay",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = members[suggestion.toUserId]?.name ?: "Unknown User",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Text(
+                    text = CurrencyUtils.formatAmount(suggestion.amount, currency),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
     }
 } 

@@ -1,5 +1,24 @@
 # FairShare Frontend TODO List
 
+## High Priority Tasks (Next Sprint)
+- [ ] Complete Receipt Management System
+  - [ ] Implement receipt image upload in expense creation
+  - [ ] Add receipt OCR integration
+  - [ ] Create receipt gallery view
+  - [ ] Add receipt editing capabilities
+
+- [ ] Enhance User Profile System
+  - [ ] Complete profile picture upload/edit
+  - [ ] Add user preferences management
+  - [ ] Implement notification settings
+  - [ ] Add language preferences
+
+- [ ] Group Management Improvements
+  - [ ] Complete group invitation system
+  - [ ] Implement group search and filtering
+  - [ ] Add group archiving functionality
+  - [ ] Enhanced member management UI
+
 ## Authentication & User Management
 - [x] Add loading states to login/register buttons
 - [x] Add error handling UI for authentication failures
@@ -68,28 +87,21 @@
   - [ ] Keyboard navigation
 - [ ] Add proper responsive design for tablets
 - [ ] Implement offline mode UI indicators
+- [ ] Add skeleton loading screens
+- [ ] Implement proper error recovery flows
 
-## General Features
-- [ ] Add search functionality across the app
-- [x] Implement notifications UI
-- [ ] Add app settings screen
-  - [ ] Language selection
-  - [ ] Theme settings
-  - [x] Notification preferences
-  - [x] Default currency
-- [ ] Create help/support screen
-- [ ] Add onboarding/tutorial screens
-- [ ] Implement data backup/restore UI
-- [x] Add proper error logging and reporting UI
-
-## Testing & Quality
-- [ ] Add UI tests for all screens
+## Testing & Quality (Priority)
+- [ ] Add UI tests for critical flows
+  - [ ] Authentication flow
+  - [ ] Expense creation flow
+  - [ ] Settlement flow
 - [ ] Implement screenshot testing
 - [ ] Add accessibility testing
 - [ ] Create UI component documentation
 - [x] Add proper loading/error states testing
 - [ ] Implement end-to-end testing
-- [ ] Add performance monitoring UI
+- [ ] Add performance monitoring
+- [ ] Implement crash reporting
 
 ## Performance Optimization
 - [ ] Implement lazy loading for lists
@@ -100,72 +112,59 @@
 - [ ] Optimize app startup time
 
 ## Current Progress
-### Completed
-- [x] Basic authentication screens (Login, Register)
-- [x] Email verification system
-- [x] Biometric authentication
-- [x] Google Sign-in UI integration
-- [x] Firebase Auth integration with proper error handling
-- [x] Anonymous authentication for development
+### Completed Recently
+- [x] Enhanced Firebase Auth integration
+- [x] Improved error handling system
 - [x] Basic group management
-- [x] Group repository implementation
-- [x] Firebase Firestore integration
-- [x] Material 3 design implementation
-- [x] Basic navigation structure with type safety
-- [x] Proper model definitions with null safety
-- [x] Currency handling improvements
+- [x] Real-time updates for expenses
+- [x] Multi-currency support
+- [x] Settlement calculation system
+- [x] Biometric authentication
+- [x] Email verification flow
 
 ### In Progress
-- [ ] Expense Management System
-  - [ ] ExpenseViewModel implementation
-  - [ ] AddExpenseScreen with split functionality
-  - [ ] Expense category selection
-  - [ ] Expense editing capabilities
-- [ ] Balance Calculation System
-  - [ ] Core balance calculation logic
-  - [ ] Currency conversion support
-  - [ ] Settlement suggestions
-  - [ ] Multi-currency handling
-- [ ] Enhanced Group Management
-  - [ ] Member invitation system
-  - [ ] Role-based permissions
-  - [ ] Group activity logging
-  - [ ] Group statistics
-- [ ] Testing and Polish
-  - [ ] ViewModel unit tests
-  - [ ] Repository tests
-  - [ ] UI tests
-  - [ ] Error handling improvements
+- [ ] Receipt management system
+- [ ] Enhanced group features
+- [ ] Profile management
+- [ ] Testing implementation
 
 ## Priority Order (Next Steps)
-1. Implement ExpenseViewModel and core expense management
-2. Create AddExpenseScreen with split functionality
-3. Develop balance calculation system
-4. Enhance group management features
-5. Add comprehensive testing suite
-6. Polish UI/UX and error handling
-7. Implement offline support
-8. Add data validation and security measures
+1. Complete receipt management system
+2. Enhance user profile features
+3. Implement group improvements
+4. Add comprehensive testing
+5. Optimize performance
+6. Enhance offline support
+7. Implement advanced features
+
+## Notes
+- Focus on user feedback implementation
+- Maintain consistent error handling
+- Prioritize data validation
+- Regular security audits
+- Performance monitoring
+- Accessibility compliance
+- Regular dependency updates
 
 ## Today's Tasks (2024-03-XX)
 ### Morning (2-3 hours)
-- [ ] ExpenseViewModel implementation
-  - [ ] CRUD operations
-  - [ ] Split calculations
-  - [ ] Category management
-  - [ ] Currency handling
-- [ ] AddExpenseScreen development
-  - [ ] Expense form
-  - [ ] Split selection UI
-  - [ ] Category picker
+- [x] ExpenseViewModel implementation
+  - [x] CRUD operations
+  - [x] Split calculations
+  - [x] Category management
+  - [x] Currency handling
+- [x] AddExpenseScreen development
+  - [x] Expense form
+  - [x] Split selection UI
+  - [x] Category picker
   - [ ] Receipt upload
 
 ### Mid-day (2-3 hours)
-- [ ] Balance calculation implementation
-  - [ ] Core balance logic
-  - [ ] Currency conversion
-  - [ ] Settlement suggestions
-  - [ ] Balance visualization
+- [x] Balance calculation implementation
+  - [x] Core balance logic
+  - [x] Currency conversion
+  - [x] Settlement suggestions
+  - [x] Balance visualization
 
 ### Afternoon (2-3 hours)
 - [ ] Group management enhancements
