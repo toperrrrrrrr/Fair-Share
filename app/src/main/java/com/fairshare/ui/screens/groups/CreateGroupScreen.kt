@@ -2,6 +2,9 @@ package com.fairshare.ui.screens.groups
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -13,13 +16,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fairshare.ui.components.CurrencySelector
 import com.fairshare.utils.CurrencyUtils
 import com.fairshare.ui.viewmodel.MainViewModel
+import com.fairshare.ui.viewmodel.UiState
 import kotlinx.coroutines.launch
 import java.util.*
+import androidx.compose.animation.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,11 +36,70 @@ fun CreateGroupScreen(
 ) {
     var groupName by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var currency by remember { mutableStateOf(CurrencyUtils.CurrencyCodes.PHP) }
+    var currency by remember { mutableStateOf("") }
+    var showCurrencySelector by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var showEmojiPicker by remember { mutableStateOf(false) }
+    var selectedEmoji by remember { mutableStateOf("👥") }
     
     val scope = rememberCoroutineScope()
+
+    // Common emojis for groups
+    val groupEmojis = listOf(
+        "👥", "👨‍👩‍👧‍👦", "🏠", "🏢", "🏫", "🏪", "🏭", "🏰",
+        "🌟", "💫", "💝", "💖", "💗", "💓", "💞", "💕",
+        "🎮", "⚽", "🎨", "🎭", "🎪", "🎯", "🎲", "🎱",
+        "🍽️", "🍳", "🥘", "🍖", "🍗", "🥩", "🥪", "🌮",
+        "✈️", "🚗", "🚅", "⛵", "🚲", "🛵", "🏍️", "🚁"
+    )
+
+    if (showEmojiPicker) {
+        Dialog(onDismissRequest = { showEmojiPicker = false }) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        "Select Group Emoji",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(6),
+                        modifier = Modifier.height(300.dp)
+                    ) {
+                        items(groupEmojis) { emoji ->
+                            Surface(
+                                onClick = {
+                                    selectedEmoji = emoji
+                                    showEmojiPicker = false
+                                },
+                                color = if (emoji == selectedEmoji) {
+                                    MaterialTheme.colorScheme.primaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.surface
+                                },
+                                modifier = Modifier.padding(4.dp)
+                            ) {
+                                Text(
+                                    text = emoji,
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    modifier = Modifier.padding(8.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -43,6 +108,17 @@ fun CreateGroupScreen(
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    // Add currency selector toggle
+                    IconButton(
+                        onClick = { showCurrencySelector = !showCurrencySelector }
+                    ) {
+                        Icon(
+                            if (showCurrencySelector) Icons.Default.MoneyOff else Icons.Default.AttachMoney,
+                            contentDescription = if (showCurrencySelector) "Hide Currency Selector" else "Show Currency Selector"
+                        )
                     }
                 }
             )
@@ -84,6 +160,36 @@ fun CreateGroupScreen(
                 }
             }
 
+            // Emoji Selection
+            OutlinedCard(
+                onClick = { showEmojiPicker = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Group Emoji",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Text(
+                            text = "Choose an emoji to represent your group",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Text(
+                        text = selectedEmoji,
+                        style = MaterialTheme.typography.headlineMedium
+                    )
+                }
+            }
+
             // Group Name
             OutlinedTextField(
                 value = groupName,
@@ -116,12 +222,22 @@ fun CreateGroupScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Currency Selector
-            CurrencySelector(
-                selectedCurrency = currency,
-                onCurrencySelected = { currency = it },
-                enabled = !isLoading
-            )
+            // Currency Selector (only shown when toggled)
+            if (showCurrencySelector) {
+                Column {
+                    Text(
+                        text = "Custom Currency (Optional)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    CurrencySelector(
+                        selectedCurrency = currency,
+                        onCurrencySelected = { currency = it },
+                        enabled = !isLoading
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.weight(1f))
 
@@ -141,18 +257,22 @@ fun CreateGroupScreen(
                             val result = viewModel.createGroup(
                                 name = groupName.trim(),
                                 description = description.trim(),
-                                currency = currency
+                                currency = currency,
+                                emoji = selectedEmoji
                             )
                             
                             if (result.isSuccess) {
+                                // Refresh groups list
+                                viewModel.refreshUserData()
                                 // Navigate back to group list
                                 navController.navigateUp()
                             } else {
-                                errorMessage = result.exceptionOrNull()?.message 
+                                val error = result.exceptionOrNull()?.message 
                                     ?: "Failed to create group"
+                                errorMessage = error
                             }
                         } catch (e: Exception) {
-                            errorMessage = e.message ?: "An unexpected error occurred"
+                            errorMessage = "An unexpected error occurred: ${e.message}"
                         } finally {
                             isLoading = false
                         }

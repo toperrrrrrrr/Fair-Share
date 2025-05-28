@@ -64,7 +64,9 @@ class MainViewModel(
             try {
                 _currentUser.value = UiState.Loading
                 firebaseRepository.getCurrentUser()
-                    .catch { e -> _currentUser.value = UiState.Error(e.message ?: "Error loading user") }
+                    .catch { e -> 
+                        _currentUser.value = UiState.Error(e.message ?: "Error loading user")
+                    }
                     .collect { user ->
                         if (user != null) {
                             _currentUser.value = UiState.Success(user)
@@ -145,31 +147,50 @@ class MainViewModel(
     }
 
     // Group operations
-    suspend fun createGroup(name: String, description: String, currency: String): Result<String> {
+    suspend fun createGroup(name: String, description: String, currency: String, emoji: String): Result<String> {
         return try {
-            val currentUserId = when (val userState = _currentUser.value) {
-                is UiState.Success -> userState.data.id
-                else -> return Result.failure(Exception("User not logged in"))
+            // First ensure we have a current user
+            if (_currentUser.value !is UiState.Success) {
+                loadCurrentUser()
+                // Give it a moment to load
+                kotlinx.coroutines.delay(1000)
             }
+            
+            val currentUser = when (val userState = _currentUser.value) {
+                is UiState.Success -> userState.data
+                else -> return Result.failure(Exception("User not logged in. Please log in and try again."))
+            }
+
+            if (currentUser.id.isBlank()) {
+                return Result.failure(Exception("Invalid user ID. Please log in again."))
+            }
+
+            // Use the provided currency if specified, otherwise use user's default
+            val groupCurrency = if (currency.isNotBlank()) currency else currentUser.defaultCurrency
 
             val group = FirebaseGroup(
                 name = name,
                 description = description,
-                currency = currency,
-                members = listOf(currentUserId),
-                createdBy = currentUserId,
+                currency = groupCurrency,
+                emoji = emoji,
+                members = listOf(currentUser.id),
+                createdBy = currentUser.id,
                 createdAt = Timestamp.now(),
                 updatedAt = Timestamp.now()
             )
 
             val groupId = firebaseRepository.createGroup(group)
             
-            // Refresh user's groups
-            loadUserData(currentUserId)
+            if (groupId.isBlank()) {
+                return Result.failure(Exception("Failed to create group. Please try again."))
+            }
+            
+            // Refresh user's groups immediately
+            loadUserData(currentUser.id)
             
             Result.success(groupId)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception("Failed to create group: ${e.message}"))
         }
     }
 

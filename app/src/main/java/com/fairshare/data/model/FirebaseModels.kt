@@ -22,7 +22,8 @@ data class FirebaseGroup(
     val id: String = "",
     val name: String = "",
     val description: String = "",
-    val currency: String = CurrencyUtils.CurrencyCodes.PHP,
+    val emoji: String = "👥", // Default group emoji
+    val currency: String = "", // Currency will be set from user's default currency during creation
     val members: List<String> = emptyList(), // List of user IDs
     val createdBy: String = "", // User ID
     val createdAt: Timestamp = Timestamp.now(),
@@ -32,6 +33,7 @@ data class FirebaseGroup(
         id = id,
         name = name,
         description = description,
+        emoji = emoji,
         members = members,
         currency = currency,
         createdBy = createdBy,
@@ -46,7 +48,7 @@ data class FirebaseExpense(
     val groupId: String = "",
     val description: String = "",
     val amount: Double = 0.0,
-    val currency: String = CurrencyUtils.CurrencyCodes.PHP,
+    val currency: String = "", // Currency will be inherited from group
     val paidBy: String = "", // User ID who paid
     val splits: Map<String, Double> = emptyMap(), // Map of user ID to amount
     val category: String = "Other",
@@ -62,6 +64,6 @@ data class FirebaseBalance(
     val groupId: String = "",
     val userId: String = "",
     val amount: Double = 0.0,
-    val currency: String = CurrencyUtils.CurrencyCodes.PHP,
+    val currency: String = "", // Currency will be inherited from group
     val updatedAt: Timestamp = Timestamp.now()
 )

@@ -39,8 +39,22 @@ class FirebaseRepository {
 
     // Group operations
     suspend fun createGroup(group: FirebaseGroup): String {
-        val docRef = groupsCollection.add(group).await()
-        return docRef.id
+        return try {
+            val docRef = groupsCollection.add(group).await()
+            if (docRef.id.isBlank()) {
+                throw Exception("Failed to generate group ID")
+            }
+            
+            // Verify the group was created by trying to read it back
+            val createdGroup = groupsCollection.document(docRef.id).get().await()
+            if (!createdGroup.exists()) {
+                throw Exception("Group was not properly saved to database")
+            }
+            
+            docRef.id
+        } catch (e: Exception) {
+            throw Exception("Failed to create group: ${e.message}")
+        }
     }
 
     suspend fun updateGroup(groupId: String, updates: Map<String, Any>) {
@@ -48,12 +62,21 @@ class FirebaseRepository {
     }
 
     fun getUserGroups(userId: String): Flow<List<FirebaseGroup>> = flow {
-        val snapshot = groupsCollection
-            .whereArrayContains("members", userId)
-            .orderBy("updatedAt", Query.Direction.DESCENDING)
-            .get()
-            .await()
-        emit(snapshot.toObjects(FirebaseGroup::class.java))
+        try {
+            val snapshot = groupsCollection
+                .whereArrayContains("members", userId)
+                // Remove orderBy to avoid indexing issues for now
+                // .orderBy("updatedAt", Query.Direction.DESCENDING)
+                .get()
+                .await()
+            
+            val groups = snapshot.toObjects(FirebaseGroup::class.java)
+            // Sort in memory instead
+            val sortedGroups = groups.sortedByDescending { it.updatedAt.seconds }
+            emit(sortedGroups)
+        } catch (e: Exception) {
+            throw Exception("Failed to get user groups: ${e.message}")
+        }
     }
 
     // Expense operations
